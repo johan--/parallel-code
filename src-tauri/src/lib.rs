@@ -23,6 +23,28 @@ pub fn run() {
         shell::login_path();
     });
 
+    // Hint WebKitGTK toward hardware-accelerated rendering on Linux.
+    // These must be set before GTK/WebKit initialisation (i.e. before
+    // tauri::Builder runs).
+    #[cfg(target_os = "linux")]
+    {
+        use std::env;
+
+        // Prefer the GL renderer for the GSK scene graph (GTK 4).
+        // "ngl" is the modern GL backend; "gl" is the older one.
+        // Either is faster than the default "cairo" software path.
+        if env::var_os("GSK_RENDERER").is_none() {
+            env::set_var("GSK_RENDERER", "ngl");
+        }
+
+        // On some NVIDIA + Wayland setups the DMA-BUF renderer causes
+        // blank or corrupt WebKit compositing layers.  Disabling it
+        // forces a safer EGL/GLX code-path that still uses the GPU.
+        if env::var_os("WEBKIT_DISABLE_DMABUF_RENDERER").is_none() {
+            env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1");
+        }
+    }
+
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
